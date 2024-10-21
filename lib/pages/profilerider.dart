@@ -161,14 +161,21 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
               ),
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (context) => const LoginPages()),
-                  );
-                },
-                child: const Text('ออกจากระบบ'),
-              ),
+  onPressed: () {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPages()),
+    );
+  },
+  style: ButtonStyle(
+    backgroundColor: WidgetStateProperty.all(Colors.red), // Set the background color to red
+  ),
+  child: const Text(
+    'ออกจากระบบ',
+    style: TextStyle(color: Colors.white), // Optional: Set text color to white for better contrast
+  ),
+)
+
             ],
           ),
         ),
@@ -289,9 +296,16 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
           ),
         ),
       
-        FilledButton(onPressed: (){
-          updateUser();
-        }, child: Text('บันทึก'))
+        FilledButton(
+  onPressed: () {
+    updateUser();
+  },
+  style: ButtonStyle(
+    backgroundColor: WidgetStateProperty.all(Colors.green), // Set the background color to green
+  ),
+  child: const Text('บันทึก', style: TextStyle(color: Colors.white)), // Optional: Set text color to white for better contrast
+)
+
       
       ],
     );

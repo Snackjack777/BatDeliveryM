@@ -3,7 +3,7 @@ import 'dart:developer';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
+// import 'package:get/get_core/src/get_main.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:lotto/pages/register.dart';
 import 'package:lotto/pages/ridermain.dart';
@@ -28,8 +28,10 @@ class _LoginPagesState extends State<LoginPages> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    _emailController.text = 'asd@sd.com';
-    _passwordController.text = '222222';
+    // _emailController.text = 'mik@gmail.com';
+    // _passwordController.text = '222222';
+        _emailController.text = 'test@gmail.com';
+    _passwordController.text = '123456';
   }
 
   @override
@@ -211,50 +213,56 @@ class _LoginPagesState extends State<LoginPages> {
       if (querySnapshot.docs.isNotEmpty) {
         var userData = querySnapshot.docs.first.data();
         log('Login successful for user: ${userData['name']}');
-        Get.snackbar("Success", "${userData['name']} Login successful");
+        Get.snackbar("เข้าสู่ระบบสำเร็จ", "ยินดีต้อนรับ คุณ ${userData['name']}");
 
-        if (!isUser) {
+
           storage.write('userId', querySnapshot.docs.first.id);
           storage.write('name', userData['name']);
           storage.write('email', userData['email']);
           storage.write('phone', userData['phone']);
           storage.write('pic', userData['pic']);
-storage.write('latitude', userData['latitude'].toString());
-storage.write('longitude', userData['longitude'].toString());
 
+        if (!isUser) {
+          // storage.write('userId', querySnapshot.docs.first.id);
+          // storage.write('name', userData['name']);
+          // storage.write('email', userData['email']);
+          // storage.write('phone', userData['phone']);
+          // storage.write('pic', userData['pic']);
+          storage.write('latitude', userData['latitude'].toString());
+          storage.write('longitude', userData['longitude'].toString());
 
-          String? userId = storage.read('userId');
-          String? name = storage.read('name');
-          String? email = storage.read('email');
-          String? phone = storage.read('phone');
-          String? pic = storage.read('pic');
-          String? latitude = storage.read('latitude');
-          String? longitude = storage.read('longitude');
+          // String? userId = storage.read('userId');
+          // String? name = storage.read('name');
+          // String? email = storage.read('email');
+          // String? phone = storage.read('phone');
+          // String? pic = storage.read('pic');
+          // String? latitude = storage.read('latitude');
+          // String? longitude = storage.read('longitude');
 
-          log('$userId $name $email $phone $pic $latitude $longitude');
+          // log('$userId $name $email $phone $pic $latitude $longitude');
 
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const Senderpages()),
           );
         } else {
-          storage.write('userId', querySnapshot.docs.first.id);
-          storage.write('name', userData['name']);
-          storage.write('email', userData['email']);
-          storage.write('phone', userData['phone']);
-          storage.write('pic', userData['pic']);
+          // storage.write('userId', querySnapshot.docs.first.id);
+          // storage.write('name', userData['name']);
+          // storage.write('email', userData['email']);
+          // storage.write('phone', userData['phone']);
+          // storage.write('pic', userData['pic']);
           storage.write('Carregistration', userData['Carregistration']);
 
-          String? userId = storage.read('userId');
-          String? name = storage.read('name');
-          String? email = storage.read('email');
-          String? phone = storage.read('phone');
-          String? pic = storage.read('pic');
-          String? Carregistration = storage.read('Carregistration');
+          // String? userId = storage.read('userId');
+          // String? name = storage.read('name');
+          // String? email = storage.read('email');
+          // String? phone = storage.read('phone');
+          // String? pic = storage.read('pic');
+          // String? Carregistration = storage.read('Carregistration');
 
-          log('$userId $name $email $phone $pic $Carregistration');
+          // log('$userId $name $email $phone $pic $Carregistration');
 
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const RiderMainPages()),
           );
@@ -269,9 +277,11 @@ storage.write('longitude', userData['longitude'].toString());
     }
   }
 
+
+
   // Register function
   void register() {
-    Navigator.pushReplacement(
+    Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const RegisterPage()),
     );

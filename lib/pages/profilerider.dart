@@ -1,6 +1,5 @@
 import 'dart:developer';
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
@@ -26,12 +25,13 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
   String? _firebaseImageUrl;
   final FirebaseStorage storage = FirebaseStorage.instance;
   final storageF = GetStorage();
-    var db = FirebaseFirestore.instance;
+  var db = FirebaseFirestore.instance;
 
   final TextEditingController nameController = TextEditingController();
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
-  final TextEditingController carRegistrationController = TextEditingController();
+  final TextEditingController carRegistrationController =
+      TextEditingController();
 
   String? userId;
   String? name;
@@ -81,19 +81,19 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
 
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const ProfileriderPages()),
         );
         break;
       case 1:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const RiderMainPages()),
         );
         break;
       case 2:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const RiderReceiverPages()),
         );
@@ -139,8 +139,10 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
                           ? NetworkImage(_firebaseImageUrl!)
                           : null),
                   child: _imageFile == null && _firebaseImageUrl == null
-                      ? const Icon(Icons.camera_alt, size: 50, color: Colors.purple)
-                      : const Icon(Icons.camera_alt, size: 50, color: Colors.purple),
+                      ? const Icon(Icons.camera_alt,
+                          size: 50, color: Colors.purple)
+                      : const Icon(Icons.camera_alt,
+                          size: 50, color: Colors.purple),
                 ),
               ),
               const SizedBox(height: 20),
@@ -161,21 +163,20 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
               ),
               const SizedBox(height: 20),
               FilledButton(
-  onPressed: () {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => const LoginPages()),
-    );
-  },
-  style: ButtonStyle(
-    backgroundColor: WidgetStateProperty.all(Colors.red), // Set the background color to red
-  ),
-  child: const Text(
-    'ออกจากระบบ',
-    style: TextStyle(color: Colors.white), // Optional: Set text color to white for better contrast
-  ),
-)
-
+                onPressed: () {
+                  logout();
+                },
+                style: ButtonStyle(
+                  backgroundColor: WidgetStateProperty.all(
+                      Colors.red), // Set the background color to red
+                ),
+                child: const Text(
+                  'ออกจากระบบ',
+                  style: TextStyle(
+                      color: Colors
+                          .white), // Optional: Set text color to white for better contrast
+                ),
+              )
             ],
           ),
         ),
@@ -295,46 +296,85 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
             ),
           ),
         ),
-      
         FilledButton(
-  onPressed: () {
-    updateUser();
-  },
-  style: ButtonStyle(
-    backgroundColor: WidgetStateProperty.all(Colors.green), // Set the background color to green
-  ),
-  child: const Text('บันทึก', style: TextStyle(color: Colors.white)), // Optional: Set text color to white for better contrast
-)
-
-      
+          onPressed: () {
+            updateUser();
+          },
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.all(
+                Colors.green), // Set the background color to green
+          ),
+          child: const Text('บันทึก',
+              style: TextStyle(
+                  color: Colors
+                      .white)), // Optional: Set text color to white for better contrast
+        )
       ],
     );
   }
 
+  Future<String> getNextFileName() async {
+    final ListResult result = await storage.ref('uploads').listAll();
+    int maxNumber = 0;
 
-void updateUser() async {
-  // อ้างอิงไปยังเอกสารที่ต้องการอัปเดต
-  DocumentReference userRef = FirebaseFirestore.instance.collection('Rider').doc(userId);
+    for (var ref in result.items) {
+      final name = ref.name;
+      final match = RegExp(r'pic-(\d+)').firstMatch(name);
+      if (match != null) {
+        int number = int.parse(match.group(1)!);
+        if (number > maxNumber) {
+          maxNumber = number;
+        }
+      }
+    }
 
-  // อัปเดตฟิลด์ name ด้วยค่าใหม่
-  await userRef.update({
-      'name': nameController.text,
-      'phone': phoneController.text,
-      'email': emailController.text,
-      'Carregistration': carRegistrationController.text,
-  }).then((_) {
-    Get.snackbar("Success", "User updated successfully");
-    // print("User updated successfully");
-  }).catchError((error) {
-    Get.snackbar("Error","Failed to update");
-    // print("Failed to update user: $error");
-  });
-}
+    return 'pic-${maxNumber + 1}';
+  }
 
+  void updateUser() async {
+    if (_imageFile != null) {
+      try {
+        if (pic != null && pic!.isNotEmpty) {
+          await storage.ref('uploads/$pic').delete();
+        }
+        String newFileName = await getNextFileName();
+        await storage
+            .ref('uploads/$newFileName')
+            .putFile(File(_imageFile!.path));
+        setState(() {
+          pic = newFileName;
+        });
+      } catch (e) {
+        log('เกิดข้อผิดพลาดขณะอัปเดตรูปภาพ: $e');
+      }
+    }
 
+    try {
+      DocumentReference userRef =
+          FirebaseFirestore.instance.collection('Rider').doc(userId);
+      await userRef.update({
+        'name': nameController.text,
+        'phone': phoneController.text,
+        'email': emailController.text,
+        'Carregistration': carRegistrationController.text,
+        'pic': pic,
+      });
+      storageF.write('name', nameController.text);
+      storageF.write('email', emailController.text);
+      storageF.write('phone', phoneController.text);
+      storageF.write('pic', pic);
+      storageF.write('Carregistration', carRegistrationController.text);
+      Get.snackbar("สำเร็จ", "อัปเดตข้อมูลผู้ใช้สำเร็จ");
+    } catch (error) {
+      Get.snackbar("ข้อผิดพลาด", "อัปเดตผู้ใช้ล้มเหลว: $error");
+    }
+  }
 
-
-
-
-
+  void logout() {
+    storageF.erase();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPages()),
+    );
+  }
 }

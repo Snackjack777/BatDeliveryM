@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:lotto/pages/profileuser.dart';
 import 'package:lotto/pages/sender.dart';
 
-class ReceiverPages extends StatefulWidget {
-  const ReceiverPages({super.key});
+class UserReceiverPages extends StatefulWidget {
+  const UserReceiverPages({super.key});
 
   @override
-  State<ReceiverPages> createState() => _ReceiverPagesState();
+  State<UserReceiverPages> createState() => _UserReceiverPagesState();
 }
 
-class _ReceiverPagesState extends State<ReceiverPages> with SingleTickerProviderStateMixin {
+class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTickerProviderStateMixin {
   int _selectedIndex = 2;
   late TabController _tabController; // Add TabController
 
@@ -26,21 +26,21 @@ class _ReceiverPagesState extends State<ReceiverPages> with SingleTickerProvider
 
     switch (index) {
       case 0:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const ProfileuserPages()),
         );
         break;
       case 1:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const Senderpages()),
         );
         break;
       case 2:
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const ReceiverPages()),
+          MaterialPageRoute(builder: (context) => const UserReceiverPages()),
         );
         break;
     }

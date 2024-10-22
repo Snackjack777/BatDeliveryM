@@ -213,10 +213,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         !isUser
                             ? SizedBox(
                                 width: double
-                                    .infinity, // หรือกำหนดขนาดตามต้องการ เช่น 300.0
-                                height: 300.0, // กำหนดความสูงตามที่ต้องการ
+                                    .infinity, 
+                                height: 300.0, 
                                 child:
-                                    Map(), // ใส่ Map() ไว้ใน SizedBox เพื่อควบคุมขนาด
+                                    Map(), 
                               )
                             : TextField(
                                 controller: addressOrLicenseController,
@@ -578,6 +578,8 @@ void _clearInputs() {
     );
   }
 
+
+
   void _showErrorSnackbar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
@@ -613,6 +615,8 @@ void _clearInputs() {
       ],
     );
   }
+
+
 
   Future<Position> _determinePosition() async {
     if (!await Geolocator.isLocationServiceEnabled()) {

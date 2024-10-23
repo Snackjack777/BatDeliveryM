@@ -227,44 +227,16 @@ class _LoginPagesState extends State<LoginPages> {
           storage.write('pic', userData['pic']);
 
         if (!isUser) {
-          // storage.write('userId', querySnapshot.docs.first.id);
-          // storage.write('name', userData['name']);
-          // storage.write('email', userData['email']);
-          // storage.write('phone', userData['phone']);
-          // storage.write('pic', userData['pic']);
           storage.write('latitude', userData['latitude'].toString());
           storage.write('longitude', userData['longitude'].toString());
 
-          // String? userId = storage.read('userId');
-          // String? name = storage.read('name');
-          // String? email = storage.read('email');
-          // String? phone = storage.read('phone');
-          // String? pic = storage.read('pic');
-          // String? latitude = storage.read('latitude');
-          // String? longitude = storage.read('longitude');
-
-          // log('$userId $name $email $phone $pic $latitude $longitude');
 
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const Senderpages()),
           );
         } else {
-          // storage.write('userId', querySnapshot.docs.first.id);
-          // storage.write('name', userData['name']);
-          // storage.write('email', userData['email']);
-          // storage.write('phone', userData['phone']);
-          // storage.write('pic', userData['pic']);
           storage.write('Carregistration', userData['Carregistration']);
-
-          // String? userId = storage.read('userId');
-          // String? name = storage.read('name');
-          // String? email = storage.read('email');
-          // String? phone = storage.read('phone');
-          // String? pic = storage.read('pic');
-          // String? Carregistration = storage.read('Carregistration');
-
-          // log('$userId $name $email $phone $pic $Carregistration');
 
           Navigator.push(
             context,

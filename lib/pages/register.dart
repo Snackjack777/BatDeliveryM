@@ -284,6 +284,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
 
 void register() async {
+
   if (!_validateInputs()) return;
 
   final XFile? image = _imageFile;
@@ -305,9 +306,21 @@ void register() async {
   } else {
     await _registerRider( picnamest) ;
   }
+  
 
   _clearInputs();
+
 }
+
+
+
+
+
+
+
+
+
+
 
 bool _validateInputs() {
   String name = nameController.text;
@@ -339,12 +352,12 @@ Future<String> _uploadImage(XFile image) async {
   try {
     String newFileName = await getNextFileName();
     await storage.ref('uploads/$newFileName').putFile(File(image.path));
-    print('File uploaded successfully: $newFileName');
+    log('File uploaded successfully: $newFileName');
     picnamest = newFileName;
-    Get.snackbar("Upload Success", "File uploaded successfully: $newFileName");
+    // Get.snackbar("Upload Success", "File uploaded successfully: $newFileName");
   } catch (e) {
-    print('Error occurred while uploading: $e');
-    Get.snackbar("Error", "Failed to upload file: $e");
+    log('Error occurred while uploading: $e');
+    // Get.snackbar("Error", "Failed to upload file: $e");
   }
   return picnamest;
 }
@@ -367,8 +380,8 @@ Future<void> _registerUser(String picnamest) async {
     };
 
     await inboxRef.doc(newDocId).set(data);
-    log('Document $newDocId added successfully');
-    Get.snackbar("Success", "Document $newDocId added successfully");
+    // log('Document $newDocId added successfully');
+    Get.snackbar("สมัครสำเร็จ", "คุณ ${nameController.text} สมัครเป็นผู้ใช้สำเร็จแล้วว");
   } catch (e) {
     log('Failed to add document: $e');
     Get.snackbar("Error", "Failed to add document");
@@ -388,12 +401,13 @@ Future<void> _registerRider(String picnamest) async {
       'email': emailController.text,
       'pass': passwordController.text,
       'Carregistration': addressOrLicenseController.text,
+      'status': 'ว่าง',
       'createAt': DateTime.now(),
     };
 
     await inboxRef.doc(newDocId).set(data);
     log('Document $newDocId added successfully');
-    Get.snackbar("Success", "Document $newDocId added successfully");
+    Get.snackbar("สมัครสำเร็จ", "คุณ ${nameController.text} สมัครเป็นไรเดอร์สำเร็จแล้วว");
   } catch (e) {
     log('Failed to add document: $e');
     Get.snackbar("Error", "Failed to add document");
@@ -422,8 +436,6 @@ Future<String> _getNextUserId(CollectionReference inboxRef, String docType) asyn
 }
 
 
-
-
 void _clearInputs() {
   nameController.clear();
   phoneController.clear();
@@ -431,6 +443,12 @@ void _clearInputs() {
   passwordController.clear();
   confirmPasswordController.clear();
   addressOrLicenseController.clear();
+
+  Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPages()),
+          );
+
 }
 
 
@@ -442,13 +460,13 @@ void _clearInputs() {
     try {
       String newFileName = await getNextFileName();
       await storage.ref('uploads/$newFileName').putFile(File(image.path));
-      print('File uploaded successfully: $newFileName');
+      // print('File uploaded successfully: $newFileName');
 
       // แจ้งเตือนชื่อไฟล์ที่อัปโหลด
-      Get.snackbar("Upload Success", "File uploaded successfully: $newFileName");
+      // Get.snackbar("Upload Success", "File uploaded successfully: $newFileName");
     } catch (e) {
-      print('Error occurred while uploading: $e');
-      Get.snackbar("Error", "Failed to upload file: $e");
+      // print('Error occurred while uploading: $e');
+      log( "Failed to upload file: $e");
     }
   }
 
@@ -470,10 +488,6 @@ void _clearInputs() {
 
     return 'pic-${maxNumber + 1}';
   }
-
-
-
-
 
 
   void showMessage(String message) {
@@ -577,7 +591,6 @@ void _clearInputs() {
       ),
     );
   }
-
 
 
   void _showErrorSnackbar(String message) {

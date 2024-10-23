@@ -73,7 +73,7 @@ class _RiderReceiverPagesState extends State<RiderReceiverPages> with SingleTick
               TabBar(
                 controller: _tabController,
                 tabs: const [
-                  Tab(text: 'ของที่ต้องรับ'), // "Search" in Thai
+                  Tab(text: 'รายละเอียดงาน'), // "Search" in Thai
                   Tab(text: 'แผนที่'), // "Map" in Thai
                 ],
                 labelColor: Colors.purple, // Selected tab color

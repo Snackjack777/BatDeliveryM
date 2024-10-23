@@ -4,10 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lotto/pages/profilerider.dart';
 import 'package:lotto/pages/riderreceiver.dart';
-
 
 class RiderMainPages extends StatefulWidget {
   const RiderMainPages({super.key});
@@ -17,13 +18,14 @@ class RiderMainPages extends StatefulWidget {
 }
 
 class _RiderMainPagesState extends State<RiderMainPages> {
-
   int _selectedIndex = 1;
-
-   final storageF = GetStorage();
+  Position? currentPosition;
+  final storageF = GetStorage();
   var db = FirebaseFirestore.instance;
   final MapController mapController = MapController();
   final double zoomIncrement = 1.0;
+  final double minZoom = 1.0;
+  final double maxZoom = 18.0;
   final FirebaseStorage storage = FirebaseStorage.instance;
 
   String? _firebaseImageUrl;
@@ -35,8 +37,11 @@ class _RiderMainPagesState extends State<RiderMainPages> {
   double? latitude;
   double? longitude;
   List<Map<String, dynamic>> users = [];
-  List<Map<String, dynamic>> receiverall = [];
+  List<Map<String, dynamic>> workrall = [];
 
+  LatLng? currentLocation;
+  LatLng? tappedLocation;
+  LatLng? point1;
 
   @override
   void initState() {
@@ -71,14 +76,35 @@ class _RiderMainPagesState extends State<RiderMainPages> {
     }
   }
 
-
-    Future<void> initializeDB() async {
+  Future<void> initializeDB() async {
     await loadData();
+    log('loadData');
     await readAllOder();
-    await _loadFirebaseImage() ;
+    log('readAllOder');
+    await _loadFirebaseImage();
+    log('_loadFirebaseImage');
+    // getCurrentLocation();
+    currentLocation = LatLng(16.251206403638957, 103.23923616148686);
   }
 
+  Future<void> getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
 
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+
+      setState(() {
+        currentPosition = position;
+        currentLocation = LatLng(position.latitude, position.longitude);
+      });
+    } catch (e) {
+      log('Error getting location: $e');
+    }
+  }
 
   Future<void> loadData() async {
     userId = storageF.read('userId');
@@ -86,7 +112,6 @@ class _RiderMainPagesState extends State<RiderMainPages> {
     email = storageF.read('email');
     phone = storageF.read('phone');
     pic = storageF.read('pic');
-
   }
 
   Future<void> _loadFirebaseImage() async {
@@ -102,54 +127,67 @@ class _RiderMainPagesState extends State<RiderMainPages> {
     }
   }
 
+  Future<void> readAllOder() async {
+    var result =
+        await db.collection('Order').where('rider', isEqualTo: 'no').get();
 
-Future<void> readAllOder() async {
-  var result =
-      await db.collection('Order').where('rider', isEqualTo: 'no').get(); 
+    List<Map<String, dynamic>> tempSenderList = [];
 
-  List<Map<String, dynamic>> tempSenderList = [];
-  
-  for (var doc in result.docs) {
-    String imageUrlr = '';
-    var result2 = await db.collection('User').doc(doc['sender']).get(); 
-    
-    try {
-      if (doc['photosender'] != null) {
-        imageUrlr = await storage
-            .ref('/order/${doc['photosender']}')
-            .getDownloadURL();
+    for (var doc in result.docs) {
+      String imageUrlr = '';
+      var senderOr = await db.collection('User').doc(doc['sender']).get();
+      var receiverOr = await db.collection('User').doc(doc['receiver']).get();
+
+      try {
+        if (doc['photosender'] != null) {
+          imageUrlr = await storage
+              .ref('/order/${doc['photosender']}')
+              .getDownloadURL();
+        }
+      } catch (e) {
+        log('Failed to load image: $e');
       }
-    } catch (e) {
-      log('Failed to load image: $e');
+
+      // ดึงแค่ชื่อ name จาก result2
+      String sendername = senderOr.data()?['name'] ?? 'Unknown';
+      String senderphone = senderOr.data()?['phone'] ?? 'Unknown';
+      String senderlatitude =
+          senderOr.data()?['latitude'].toString() ?? 'Unknown';
+      String senderlongitude =
+          senderOr.data()?['longitude'].toString() ?? 'Unknown';
+      String picS = senderOr.data()?['pic'].toString() ?? 'Unknown';
+
+      String receivername = receiverOr.data()?['name'] ?? 'Unknown';
+      String receiverphone = receiverOr.data()?['phone'] ?? 'Unknown';
+      String receiverlatitude =
+          receiverOr.data()?['latitude'].toString() ?? 'Unknown';
+      String receiverlongitude =
+          receiverOr.data()?['longitude'].toString() ?? 'Unknown';
+      String picR = receiverOr.data()?['pic'].toString() ?? 'Unknown';
+
+      tempSenderList.add({
+        'detail': doc['detail'],
+        'photosender': imageUrlr,
+        'sendername': sendername,
+        'senderphone': senderphone,
+        'receivername': receivername,
+        'receiverphone': receiverphone,
+        'receiver_id': doc['receiver'],
+        'sender_id': doc['sender'],
+        'order_id': doc.id,
+        'latitudeR': receiverlatitude,
+        'longitudeR': receiverlongitude,
+        'latitudeS': senderlatitude,
+        'longitudeS': senderlongitude,
+        'picR': picR,
+        'picS': picS,
+      });
     }
 
-    // ดึงแค่ชื่อ name จาก result2
-    String sendername = result2.data()?['name'] ?? 'Unknown'; 
-    String senderphone = result2.data()?['phone'] ?? 'Unknown';
-    
-    tempSenderList.add({
-      'createAt': doc['createAt'],
-      'detail': doc['detail'],
-      'photosender': imageUrlr,
-      'sendername': sendername,
-      'rider': doc['rider'],
-      'status': doc['status'],
-      'sender': doc['sender'], 
-      'phone': senderphone, 
+    setState(() {
+      workrall = tempSenderList;
     });
   }
-
-  setState(() {
-    receiverall = tempSenderList;
-  });
-}
-
-
-
-
-
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -165,255 +203,466 @@ Future<void> readAllOder() async {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
+              // Expanded(
+              //   child: ListView(
+              //     children: [
+              //       buildJobCard(context, 'นาย A'),
+              //       SizedBox(height: 10),
+              //       buildJobCard(context, 'นาย B'),
+              //     ],
+              //   ),
+              // ),
               Expanded(
-                child: ListView(
-                  children: [
-                    buildJobCard(context, 'นาย A'),
-                    SizedBox(height: 10),
-                    buildJobCard(context, 'นาย B'),
-                  ],
+                child: ListView.builder(
+                  itemCount: workrall.length,
+                  itemBuilder: (context, index) {
+                    var work = workrall[index];
+                    return Card(
+                      margin: EdgeInsets.all(10),
+                      child: ListTile(
+                        title: Text('Work : ${index + 1}'),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('ผู้ส่ง : ${work['sendername']}'),
+                            Text('ผู้รับ : ${work['receivername']}'),
+                            Text('เบอร์ผู้ส่ง : ${work['senderphone']}'),
+                            Text('เบอร์ผู้รับ : ${work['receiverphone']}'),
+                            Text('รายละเอียด : ${work['detail']}'),
+                          ],
+                        ),
+                        leading: Image.network(work['photosender']),
+                        onTap: () {
+                          workdailog(work);
+                        },
+                      ),
+                    );
+                  },
                 ),
-              ),
+              )
+
               // Bottom Navigation Bar
-   
             ],
           ),
         ),
-          
         bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(30),
-          topRight: Radius.circular(30),
-        ),
-        child: BottomNavigationBar(
-          backgroundColor: Colors.white,
-          selectedItemColor: Colors.purple,
-          unselectedItemColor: Colors.black,
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          selectedLabelStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(30),
+            topRight: Radius.circular(30),
           ),
-          unselectedLabelStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.normal,
+          child: BottomNavigationBar(
+            backgroundColor: Colors.white,
+            selectedItemColor: Colors.purple,
+            unselectedItemColor: Colors.black,
+            currentIndex: _selectedIndex,
+            onTap: _onItemTapped,
+            showSelectedLabels: true,
+            showUnselectedLabels: true,
+            selectedLabelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.normal,
+            ),
+            items: [
+              BottomNavigationBarItem(
+                icon: Image.asset(
+                  'assets/images/pro2.png',
+                  width: 30,
+                  height: 30,
+                ),
+                label: 'Profile',
+              ),
+              BottomNavigationBarItem(
+                icon: Image.asset(
+                  'assets/images/batone.png',
+                  width: 30,
+                  height: 30,
+                ),
+                label: 'Rider',
+              ),
+              BottomNavigationBarItem(
+                icon: Image.asset(
+                  'assets/images/map.png',
+                  width: 30,
+                  height: 30,
+                ),
+                label: 'Receiver',
+              ),
+            ],
           ),
-          items: [
-            BottomNavigationBarItem(
-              icon: Image.asset(
-                'assets/images/pro2.png',
-                width: 30,
-                height: 30,
-              ),
-              label: 'Profile',
-            ),
-            BottomNavigationBarItem(
-              icon: Image.asset(
-                'assets/images/batone.png',
-                width: 30,
-                height: 30,
-              ),
-              label: 'Rider',
-            ),
-            BottomNavigationBarItem(
-              icon: Image.asset(
-                'assets/images/map.png',
-                width: 30,
-                height: 30,
-              ),
-              label: 'Receiver',
-            ),
-          ],
         ),
-      ),
-    
-    
-      
       ),
     );
   }
 
-  // การ์ดแสดงงาน
-  Widget buildJobCard(BuildContext context, String name) {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(name, style: TextStyle(fontSize: 18)),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple, // สีของปุ่ม
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            onPressed: () {
-              // เมื่อกดปุ่มจะแสดง AlertDialog
-              showDialog(
-                context: context,
-                builder: (context) {
-                  return AlertDialog(
-                    title: Text('รายละเอียดงานของ $name'),
-                    content: buildAlertDialogContent(),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('คุณปฏิเสธงาน')),
-                          );
-                        },
-                        child: Text('ปฏิเสธ'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('คุณยอมรับงานแล้ว')),
-                          );
-                        },
-                        child: Text('ยอมรับ'),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-            child: Text('รายละเอียด'),
-          ),
-        ],
-      ),
-    );
-  }
+  void workdailog(Map<String, dynamic> work) async {
+    log('picS : ${work['picS']}');
+    log('picR : ${work['picR']}');
+    String picS =
+        await storage.ref('/uploads/${work['picS']}').getDownloadURL();
+    String picR =
+        await storage.ref('/uploads/${work['picR']}').getDownloadURL();
 
-  // เนื้อหาภายใน AlertDialog
-  Widget buildAlertDialogContent() {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ช่องส่งจาก และไปยัง
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'ส่งจาก',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'ไปยัง',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-          // ช่องกรอกเบอร์ผู้ส่งและผู้รับ
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'เบอร์ผู้ส่ง',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: TextField(
-                  decoration: InputDecoration(
-                    labelText: 'เบอร์ผู้รับ',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10),
-          // ช่องชื่อการส่ง
-          TextField(
-            decoration: InputDecoration(
-              labelText: 'ชื่อการส่ง',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-          ),
-          SizedBox(height: 10),
-          // ช่องกรอกรายละเอียดการส่ง
-          TextField(
-            decoration: InputDecoration(
-              labelText: 'รายละเอียดการส่ง',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-            ),
-            maxLines: 3,
-          ),
-          const SizedBox(height: 10),
-          // ช่องใส่รูป
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Column(
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('รายละเอียดงาน'),
+          content: SingleChildScrollView(
+            child: ListBody(
               children: [
-                Icon(Icons.camera_alt, size: 50),
-                SizedBox(height: 8),
-                Text('อัพโหลดรูปภาพ'),
+                Text('ผู้ส่ง: ${work['sendername']}'),
+                Text('ผู้รับ: ${work['receivername']}'),
+                Text('เบอร์ผู้ส่ง: ${work['senderphone']}'),
+                Text('เบอร์ผู้รับ: ${work['receiverphone']}'),
+                Text('รายละเอียด: ${work['detail']}'),
+                SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  height: 250.0,
+                  child: Scaffold(
+                    body: FlutterMap(
+                      mapController: mapController,
+                      options: MapOptions(
+                        center: currentLocation ??
+                            LatLng(
+                              double.parse(work['latitudeS']),
+                              double.parse(work['longitudeS']),
+                            ),
+                        zoom: 14.5,
+                        minZoom: minZoom,
+                        maxZoom: maxZoom,
+                        bounds: currentLocation != null
+                            ? LatLngBounds.fromPoints([
+                                currentLocation!,
+                                LatLng(double.parse(work['latitudeS']),
+                                    double.parse(work['longitudeS'])),
+                                LatLng(double.parse(work['latitudeR']),
+                                    double.parse(work['longitudeR']))
+                              ])
+                            : null,
+                        boundsOptions: const FitBoundsOptions(
+                          padding: EdgeInsets.all(50.0),
+                        ),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate:
+                              "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                          subdomains: ['a', 'b', 'c'],
+                        ),
+                        buildMapWithMarkers(
+                          point1: LatLng(
+                            double.parse(work['latitudeS']),
+                            double.parse(work['longitudeS']),
+                          ),
+                          url1: picS,
+                          url2: picR,
+                          users: users,
+                          receiverpoint: LatLng(
+                            double.parse(work['latitudeR']),
+                            double.parse(work['longitudeR']),
+                          ),
+                        ),
+                      ],
+                    ),
+                    floatingActionButton: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        FloatingActionButton(
+                          onPressed: _zoomIn,
+                          child: const Icon(Icons.add),
+                          tooltip: 'Zoom In',
+                        ),
+                        const SizedBox(height: 10),
+                        FloatingActionButton(
+                          onPressed: _zoomOut,
+                          child: const Icon(Icons.remove),
+                          tooltip: 'Zoom Out',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
-      ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('ปิด'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              child: Text('รับงาน'),
+              onPressed: () {
+                acceptOrder(work['order_id']);
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
+  Widget buildMapWithMarkers({
+    required LatLng? point1,
+    required String? url1,
+    required String? url2,
+    required List<Map<String, dynamic>> users,
+    required LatLng? receiverpoint,
+  }) {
+    List<List<LatLng>> polylinePoints = [];
+
+    // Add polyline from current location to sender
+    if (currentLocation != null && point1 != null) {
+      polylinePoints.add([currentLocation!, point1]);
+    }
+
+    // Add polyline from sender to receiver
+    if (point1 != null && receiverpoint != null) {
+      polylinePoints.add([point1, receiverpoint]);
+    }
+
+    return Stack(
+      children: [
+        // Polyline Layers
+        ...polylinePoints.map((points) => PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: points,
+                  strokeWidth: 3.0,
+                  color: Colors.purple.withOpacity(0.7),
+                  isDotted: true,
+                ),
+              ],
+            )),
+
+        // Current Location Marker
+        if (currentLocation != null)
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: currentLocation!,
+                width: 50,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'คุณ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: _firebaseImageUrl != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  _firebaseImageUrl!,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+        // Sender Marker
+        if (point1 != null)
+         
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: point1,
+                width: 50,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'ผู้ส่ง',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: url1 != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url1,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        
+        // Receiver Marker
+       
+        if (receiverpoint != null)
+         
+          MarkerLayer(
+            markers: [
+              Marker(
+                point: receiverpoint,
+                width: 50,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'ผู้รับ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: url2 != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url2,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        
+      
+      ],
+    );
+  }
+
+  void _zoomIn() {
+    if (currentLocation != null) {
+      final currentZoom = mapController.zoom;
+      if (currentZoom < maxZoom) {
+        mapController.move(currentLocation!, currentZoom + zoomIncrement);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('รอสักครู่ กำลังรับตำแหน่ง GPS')));
+    }
+  }
+
+  void _zoomOut() {
+    if (currentLocation != null) {
+      final currentZoom = mapController.zoom;
+      if (currentZoom > minZoom) {
+        mapController.move(currentLocation!, currentZoom - zoomIncrement);
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('รอสักครู่ กำลังรับตำแหน่ง GPS')));
+    }
+  }
+
+  Future<void> acceptOrder(String orderId) async {
+    try {
+      // Fetch the rider's current status
+      DocumentSnapshot riderSnapshot =
+          await db.collection('Rider').doc(userId).get();
+      String currentStatus = riderSnapshot['status'];
+
+      // Check if the rider's status is 'ว่าง'
+      if (currentStatus != 'ว่าง') {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('คุณไม่สามารถรับงานได้ในขณะนี้')));
+        return; // Exit the function if the rider is not available
+      }
+
+      // Proceed with accepting the order if the rider is available
+      log('${currentLocation!.latitude}');
+      await db
+          .collection('Order')
+          .doc(orderId)
+          .update({'rider': userId, 'status': 'ไรเดอร์รับงานแล้ว','pointX': currentLocation!.latitude, 'pointY': currentLocation!.longitude});
 
 
+      await db.collection('Rider').doc(userId).update({'status': 'รับงานแล้ว'});
 
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('รับงานสำเร็จ')));
 
-
-
-
+      // Refresh the order list
+      await readAllOder();
+    } catch (e) {
+      print('Error accepting order: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')));
+    }
+  }
 
 
 }
-
-

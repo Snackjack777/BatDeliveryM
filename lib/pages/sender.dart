@@ -739,6 +739,8 @@ Future<void> readAllsender() async {
           'photosender': newFileName,
           'rider': 'no',
           'status': 'ยังไม่มีไรเดอร์',
+                    'pointX': 0.000000,
+                              'pointY': 0.000000,
           'createAt': DateTime.now(),
         };
         await inboxRef.doc(newDocId).set(data);

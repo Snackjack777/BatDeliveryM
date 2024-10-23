@@ -28,10 +28,12 @@ class _LoginPagesState extends State<LoginPages> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    // _emailController.text = 'mik@gmail.com';
-    // _passwordController.text = '222222';
-        _emailController.text = 'test@gmail.com';
-    _passwordController.text = '123456';
+    _emailController.text = 'mik@gmail.com';
+    _passwordController.text = '222222';
+    //     _emailController.text = 'test@gmail.com';
+    // _passwordController.text = '123456';
+    //     _emailController.text = 'snack@gmail.com';
+    // _passwordController.text = '666666';
   }
 
   @override
@@ -190,6 +192,8 @@ class _LoginPagesState extends State<LoginPages> {
       ],
     );
   }
+
+
 
   void login() async {
     final email = _emailController.text;

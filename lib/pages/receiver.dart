@@ -1,4 +1,10 @@
+import 'dart:developer';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:lotto/pages/profileuser.dart';
 import 'package:lotto/pages/sender.dart';
 
@@ -13,10 +19,80 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
   int _selectedIndex = 2;
   late TabController _tabController; // Add TabController
 
+
+  final storageF = GetStorage();
+  var db = FirebaseFirestore.instance;
+  final MapController mapController = MapController();
+  final double zoomIncrement = 1.0;
+  final FirebaseStorage storage = FirebaseStorage.instance;
+
+  String? _firebaseImageUrl;
+  String? userId;
+  String? name;
+  String? email;
+  String? phone;
+  String? pic;
+  double? latitude;
+  double? longitude;
+  List<Map<String, dynamic>> users = [];
+  List<Map<String, dynamic>> receiverall = [];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this); // Initialize TabController with 2 tabs
+    _tabController = TabController(length: 2, vsync: this); 
+    initializeDB();
+  }
+
+    Future<void> initializeDB() async {
+    await loadData();
+    await readAllreceiver();
+    await _loadFirebaseImage() ;
+  }
+
+  Future<void> loadData() async {
+    userId = storageF.read('userId');
+    name = storageF.read('name');
+    email = storageF.read('email');
+    phone = storageF.read('phone');
+    pic = storageF.read('pic');
+    // log('$name');
+
+    // ตรวจสอบค่าที่อ่านมาจาก storage ว่าไม่เป็น null
+    final latitudeString = storageF.read('latitude');
+    final longitudeString = storageF.read('longitude');
+
+    // แปลงค่า latitude และ longitude เป็น double หากไม่เป็น null
+    // if (latitudeString != null && longitudeString != null) {
+    //   try {
+    //     latitude = double.parse(latitudeString);
+    //     longitude = double.parse(longitudeString);
+    //     if (latitude != null && longitude != null) {
+    //       setState(() {
+    //         point1 = LatLng(latitude!, longitude!);
+    //       });
+    //     }
+    //   } catch (e) {
+    //     log('Error parsing latitude or longitude: $e');
+    //     point1 = null;
+    //   }
+    // } else {
+    //   log('Latitude or longitude is null');
+    //   point1 = null;
+    // }
+  }
+
+  Future<void> _loadFirebaseImage() async {
+    try {
+      if (pic != null) {
+        String imageUrl = await storage.ref('/uploads/$pic').getDownloadURL();
+        setState(() {
+          _firebaseImageUrl = imageUrl;
+        });
+      }
+    } catch (e) {
+      print('Failed to load image: $e');
+    }
   }
 
   void _onItemTapped(int index) {
@@ -89,15 +165,30 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
                       children: [
 
                         Expanded(
-                          child: ListView(
-                            // Placeholder for search results
-                            children: const [
-                              ListTile(title: Text('Rider 1')), // "Result 1" in Thai
-                              ListTile(title: Text('Rider 2')), // "Result 2" in Thai
-                              ListTile(title: Text('Rider 3')), // "Result 3" in Thai
-                            ],
-                          ),
-                        ),
+                            child: ListView.builder(
+                          itemCount: receiverall.length,
+                          itemBuilder: (context, index) {
+                            var receiver = receiverall[index];
+                            return Card(
+                              margin: EdgeInsets.all(10),
+                              child: ListTile(
+                                title: Text('Receiver : ${index+1}'),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('ผู้ส่ง : ${receiver['sendername']}'),
+                                    Text('โทรศัพทร์ผู้รับ : ${receiver['phone']}'),
+                                    Text('สถานะ : ${receiver['status']}'),
+                                     Text('รายละเอียด : ${receiver['detail']}'),
+                                     
+                                    
+                                  ],
+                                ),
+                                leading: Image.network(receiver['photosender']),
+                              ),
+                            );
+                          },
+                        )),
                       ],
                     ),
                     // Second tab: Map Page
@@ -171,4 +262,51 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
     _tabController.dispose(); // Dispose the TabController
     super.dispose();
   }
+
+
+Future<void> readAllreceiver() async {
+  var result =
+      await db.collection('Order').where('receiver', isEqualTo: userId).get(); // ดึงข้อมูลจาก collection Order ที่ sender = userId
+  List<Map<String, dynamic>> tempSenderList = [];
+  
+  for (var doc in result.docs) {
+    String imageUrlr = '';
+    var result2 = await db.collection('User').doc(doc['sender']).get(); // แก้ไขเป็นการดึง sender จาก Order แทน
+    
+    try {
+      if (doc['photosender'] != null) {
+        imageUrlr = await storage
+            .ref('/order/${doc['photosender']}')
+            .getDownloadURL();
+      }
+    } catch (e) {
+      log('Failed to load image: $e');
+    }
+
+    // ดึงแค่ชื่อ name จาก result2
+    String sendername = result2.data()?['name'] ?? 'Unknown'; // หาก name ไม่มีค่า จะแสดง 'Unknown'
+    String senderphone = result2.data()?['phone'] ?? 'Unknown';
+    
+    tempSenderList.add({
+      'createAt': doc['createAt'],
+      'detail': doc['detail'],
+      'photosender': imageUrlr,
+      'sendername': sendername,
+      'rider': doc['rider'],
+      'status': doc['status'],
+      'sender': doc['sender'], 
+      'phone': senderphone, 
+    });
+  }
+
+  setState(() {
+    receiverall = tempSenderList;
+  });
+}
+
+
+
+
+
+
 }

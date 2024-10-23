@@ -45,7 +45,7 @@ class _SenderpagesState extends State<Senderpages>
   double? latitude;
   double? longitude;
   List<Map<String, dynamic>> users = [];
-  List<Map<String, dynamic>>senderall =[];
+  List<Map<String, dynamic>> senderall = [];
 
   XFile? selectedImage;
 
@@ -87,13 +87,15 @@ class _SenderpagesState extends State<Senderpages>
         }
       } catch (e) {
         log('Error parsing latitude or longitude: $e');
-        point1 = null; 
+        point1 = null;
       }
     } else {
       log('Latitude or longitude is null');
-      point1 = null; 
+      point1 = null;
     }
   }
+
+
 
   Future<void> readAllUsers() async {
     var result = await db.collection('User').get();
@@ -113,24 +115,44 @@ class _SenderpagesState extends State<Senderpages>
   }
 
 Future<void> readAllsender() async {
-  var result = await db.collection('Order')
-                       .where('sender', isEqualTo: userId) 
-                       .get();
+  var result =
+      await db.collection('Order').where('sender', isEqualTo: userId).get(); // ดึงข้อมูลจาก collection Order ที่ sender = userId
+  List<Map<String, dynamic>> tempSenderList = [];
   
+  for (var doc in result.docs) {
+    String imageUrlr = '';
+    var result2 = await db.collection('User').doc(doc['receiver']).get(); // แก้ไขเป็นการดึง sender จาก Order แทน
+    
+    try {
+      if (doc['photosender'] != null) {
+        imageUrlr = await storage
+            .ref('/order/${doc['photosender']}')
+            .getDownloadURL();
+      }
+    } catch (e) {
+      log('Failed to load image: $e');
+    }
+
+    // ดึงแค่ชื่อ name จาก result2
+    String receiverName = result2.data()?['name'] ?? 'Unknown'; // หาก name ไม่มีค่า จะแสดง 'Unknown'
+    String receiverphone = result2.data()?['phone'] ?? 'Unknown';
+    
+    tempSenderList.add({
+      'createAt': doc['createAt'],
+      'detail': doc['detail'],
+      'photosender': imageUrlr,
+      'receiver': receiverName,
+      'rider': doc['rider'],
+      'status': doc['status'],
+      'sender': doc['sender'], 
+      'phone': receiverphone, 
+    });
+  }
+
   setState(() {
-    senderall = result.docs.map((doc) {
-      return {
-        'createAt': doc['createAt'],      // เวลาที่สร้าง
-        'detail': doc['detail'],          // รายละเอียด
-        'photosender': doc['photosender'], // รูปของผู้ส่ง
-        'receiver': doc['receiver'],      // ผู้รับ
-        'rider': doc['rider'],            // Rider
-        'sender': doc['sender'],          // ผู้ส่ง (ซึ่งจะเป็น userId)
-      };
-    }).toList();
+    senderall = tempSenderList;
   });
 }
-
 
   @override
   Widget build(BuildContext context) {
@@ -216,35 +238,35 @@ Future<void> readAllsender() async {
                         ),
                       ],
                     ),
-
-                      Column(
-                        children: [
-                          Expanded(
-                          child: ListView.builder(
-              itemCount: senderall.length, 
-              itemBuilder: (context, index) {
-                var user = senderall[index]; 
-                return Card(
-                  margin: EdgeInsets.all(10),
-                  child: ListTile(
-                    title: Text('Order: ${user['detail']}'), 
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Column(
                       children: [
-                        Text('Receiver: ${user['receiver']}'),
-                        // Text('Rider: ${user['rider']}'),
+                        Expanded(
+                            child: ListView.builder(
+                          itemCount: senderall.length,
+                          itemBuilder: (context, index) {
+                            var sender = senderall[index];
+                            return Card(
+                              margin: EdgeInsets.all(10),
+                              child: ListTile(
+                                title: Text('Sender : ${index+1}'),
+                                subtitle: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('ผู้รับ : ${sender['receiver']}'),
+                                    Text('โทรศัพทร์ผู้รับ : ${sender['phone']}'),
+                                    Text('สถานะ : ${sender['status']}'),
+                                     Text('รายละเอียด : ${sender['detail']}'),
+                                     
+                                    
+                                  ],
+                                ),
+                                leading: Image.network(sender['photosender']),
+                              ),
+                            );
+                          },
+                        )),
                       ],
                     ),
-                    leading: Image.network(user['photosender']),
-                  ),
-                );
-              },
-            )
-                        ),
-                          
-                        ],
-                      ),
-                    
                     const Center(
                       child: Text(
                         'แผนที่จะไปที่นี่', // "Map will be here" in Thai
@@ -321,13 +343,11 @@ Future<void> readAllsender() async {
         TextEditingController(text: user['phone']);
     final TextEditingController detailsController = TextEditingController();
 
-    
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('ข้อมูลการส่ง'), 
+          title: const Text('ข้อมูลการส่ง'),
           content: SingleChildScrollView(
             child: StatefulBuilder(
               builder: (context, setState) {
@@ -446,7 +466,7 @@ Future<void> readAllsender() async {
           actions: [
             TextButton(
               onPressed: () {
-                submitOrder(user['id'],detailsController.text);
+                submitOrder(user['id'], detailsController.text);
               },
               child: const Text('ส่ง'),
             ),
@@ -565,8 +585,6 @@ Future<void> readAllsender() async {
       ],
     );
   }
-
-
 
   Widget MapShow() {
     return Scaffold(
@@ -698,52 +716,56 @@ Future<void> readAllsender() async {
     }
   }
 
-  Future<void> submitOrder(String receiver,String detail) async {
-        log('receiver : $receiver');
+  Future<void> submitOrder(String receiver, String detail) async {
+    log('receiver : $receiver');
     log('sender : $userId');
     log('detail : $detail');
     log('$selectedImage');
 
-    if(selectedImage != null){
-     var inboxRef = db.collection('Order');
+    if (selectedImage != null) {
+      var inboxRef = db.collection('Order');
 
+      try {
+        String newFileName = await getNextFileName();
+        await storage
+            .ref('order/$newFileName')
+            .putFile(File(selectedImage!.path));
 
-  try {
-    String newFileName = await getNextFileName();
-      await storage.ref('order/$newFileName').putFile(File(selectedImage!.path));
-
-    String newDocId = await _getNextUserId(inboxRef, 'Order');
-    var data = {
-      'sender': userId,
-      'receiver': receiver,
-      'detail': detail,
-      'photosender': newFileName,
-      'rider': 'no',
-      'createAt': DateTime.now(),
-    };
-    await inboxRef.doc(newDocId).set(data);
-    selectedImage = null;
-    log('Document $newDocId added successfully');
-    Get.snackbar("Success", "Document $newDocId added successfully");
-  } catch (e) {
-    log('Failed to add document: $e');
-    Get.snackbar("Error", "Failed to add document");
-  }
+        String newDocId = await _getNextUserId(inboxRef, 'Order');
+        var data = {
+          'sender': userId,
+          'receiver': receiver,
+          'detail': detail,
+          'photosender': newFileName,
+          'rider': 'no',
+          'status': 'ยังไม่มีไรเดอร์',
+          'createAt': DateTime.now(),
+        };
+        await inboxRef.doc(newDocId).set(data);
+        selectedImage = null;
+        log('Document $newDocId added successfully');
+        Get.snackbar("Success", "Document $newDocId added successfully");
+      } catch (e) {
+        log('Failed to add document: $e');
+        Get.snackbar("Error", "Failed to add document");
+      }
     }
-
-
   }
 
-  Future<String> _getNextUserId(CollectionReference inboxRef, String docType) async {
-  var querySnapshot = await inboxRef.orderBy(FieldPath.documentId, descending: true).limit(1).get();
-  int nextDocNumber = 1;
-  if (querySnapshot.docs.isNotEmpty) {
-    var lastDocId = querySnapshot.docs.first.id;
-    var lastDocNumber = int.parse(lastDocId.split('-').last);
-    nextDocNumber = lastDocNumber + 1;
+  Future<String> _getNextUserId(
+      CollectionReference inboxRef, String docType) async {
+    var querySnapshot = await inboxRef
+        .orderBy(FieldPath.documentId, descending: true)
+        .limit(1)
+        .get();
+    int nextDocNumber = 1;
+    if (querySnapshot.docs.isNotEmpty) {
+      var lastDocId = querySnapshot.docs.first.id;
+      var lastDocNumber = int.parse(lastDocId.split('-').last);
+      nextDocNumber = lastDocNumber + 1;
+    }
+    return '$docType-$nextDocNumber';
   }
-  return '$docType-$nextDocNumber'; 
-}
 
   Future<String> getNextFileName() async {
     final ListResult result = await storage.ref('order').listAll();
@@ -762,5 +784,4 @@ Future<void> readAllsender() async {
 
     return 'order-${maxNumber + 1}';
   }
-
 }

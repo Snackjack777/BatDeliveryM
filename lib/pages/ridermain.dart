@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lotto/pages/profilerider.dart';
@@ -86,6 +87,8 @@ class _RiderMainPagesState extends State<RiderMainPages> {
     currentLocation = LatLng(16.251206403638957, 103.23923616148686);
   }
 
+
+
   Future<void> getCurrentLocation() async {
     try {
       LocationPermission permission = await Geolocator.checkPermission();
@@ -113,6 +116,8 @@ class _RiderMainPagesState extends State<RiderMainPages> {
     pic = storageF.read('pic');
   }
 
+
+
   Future<void> _loadFirebaseImage() async {
     try {
       if (pic != null) {
@@ -125,6 +130,8 @@ class _RiderMainPagesState extends State<RiderMainPages> {
       print('Failed to load image: $e');
     }
   }
+
+
 
   Future<void> readAllOder() async {
     var result =
@@ -202,15 +209,6 @@ class _RiderMainPagesState extends State<RiderMainPages> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              // Expanded(
-              //   child: ListView(
-              //     children: [
-              //       buildJobCard(context, 'นาย A'),
-              //       SizedBox(height: 10),
-              //       buildJobCard(context, 'นาย B'),
-              //     ],
-              //   ),
-              // ),
               Expanded(
                 child: ListView.builder(
                   itemCount: workrall.length,
@@ -628,19 +626,16 @@ class _RiderMainPagesState extends State<RiderMainPages> {
 
   Future<void> acceptOrder(String orderId) async {
     try {
-      // Fetch the rider's current status
       DocumentSnapshot riderSnapshot =
           await db.collection('Rider').doc(userId).get();
       String currentStatus = riderSnapshot['status'];
 
-      // Check if the rider's status is 'ว่าง'
       if (currentStatus != 'ว่าง') {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('คุณไม่สามารถรับงานได้ในขณะนี้')));
-        return; // Exit the function if the rider is not available
+            Get.snackbar("ไม่สามารถรับงานได้", "คุณยังทำงานไม่เสร็จ ไม่สามารถรับงานได้ในขณะนี้");
+            Navigator.pop(context);
+        return; 
       }
 
-      // Proceed with accepting the order if the rider is available
       log('${currentLocation!.latitude}');
       await db
           .collection('Order')
@@ -651,13 +646,12 @@ class _RiderMainPagesState extends State<RiderMainPages> {
       await db.collection('Rider').doc(userId).update({'status': 'รับงานแล้ว'});
 
       Navigator.pop(context);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('รับงานสำเร็จ')));
+      Get.snackbar("รับงานสำเร็จ", "คุณสามารถเริ่มงานได้แล้ว");
 
       // Refresh the order list
       await readAllOder();
     } catch (e) {
-      print('Error accepting order: $e');
+      log('Error accepting order: $e');
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('เกิดข้อผิดพลาด กรุณาลองใหม่')));
     }

@@ -39,6 +39,16 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
   List<Map<String, dynamic>> receiverall = [];
 
   LatLng? point1;
+       List<LatLng> points = [];
+
+   List<String> ridernumber = [];
+   List<LatLng> riderPoints = [];
+     List<String> ridernames = [];
+       LatLng? currentLocation;
+         List<Map<String, dynamic>> senderall = [];
+
+
+
 
   @override
   void initState() {
@@ -85,15 +95,29 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
     }
   }
 
-
 Future<void> readAllreceiver() async {
-  var result =
-      await db.collection('Order').where('receiver', isEqualTo: userId).get();
+  var filteredOrders = await db.collection('Order')
+  .where('receiver', isEqualTo: userId)
+  .get();
+  var result = filteredOrders.docs.where((doc) => doc['status'] != 'ส่งแล้ว').toList();
   List<Map<String, dynamic>> tempSenderList = [];
+  List<LatLng> pointsadd = [];
+  List<String> ridernumberadd = [];
+  List<LatLng> riderPointsAdd = []; 
+
+  List<String> ridernamesadd=[];
   
-  for (var doc in result.docs) {
+  for (var doc in result) {
+    double pointX = doc['pointX'] ?? 0.0;
+    double pointY = doc['pointY'] ?? 0.0;
+    if (pointX != 0.0 && pointY != 0.0) {
+      riderPointsAdd.add(LatLng(pointX, pointY));
+      ridernamesadd.add(doc['rider']);
+      
+    }
+
     String imageUrlr = '';
-    var result2 = await db.collection('User').doc(doc['sender']).get(); 
+    var result2 = await db.collection('User').doc(doc['sender']).get();
     
     try {
       if (doc['photosender'] != null) {
@@ -103,30 +127,67 @@ Future<void> readAllreceiver() async {
       }
     } catch (e) {
       log('Failed to load image: $e');
+      imageUrlr = ''; 
     }
 
-    // ดึงแค่ชื่อ name จาก result2
-    String sendername = result2.data()?['name'] ?? 'Unknown'; 
-    String senderphone = result2.data()?['phone'] ?? 'Unknown';
+    String senderName = result2.data()?['name']?.toString() ?? 'Unknown'; 
+    String senderphone = result2.data()?['phone']?.toString() ?? 'Unknown';
+    String? senderpic = result2.data()?['pic']?.toString();
     
-    tempSenderList.add({
-      'createAt': doc['createAt'],
-      'detail': doc['detail'],
-      'photosender': imageUrlr,
-      'sendername': sendername,
-      'rider': doc['rider'],
-      'status': doc['status'],
-      'sender': doc['sender'], 
-      'phone': senderphone, 
-    });
+    double receiverlatitude = 0.0;
+    double receiverlongitude = 0.0;
+    
+    try {
+      receiverlatitude = double.parse(result2.data()?['latitude']?.toString() ?? '0.0');
+      receiverlongitude = double.parse(result2.data()?['longitude']?.toString() ?? '0.0');
+    } catch (e) {
+      log('Error parsing coordinates: $e');
+    }
+    
+    String senderPicUrl = '';
+    if (senderpic != null && senderpic.isNotEmpty) {
+      try {
+        senderPicUrl = await storage.ref('/uploads/$senderpic').getDownloadURL();
+      } catch (e) {
+        log('Failed to load receiver pic: $e');
+        senderPicUrl = ''; 
+      }
+    }
+
+
+
+    if (receiverlatitude != 0.0 && receiverlongitude != 0.0) {
+      pointsadd.add(LatLng(receiverlatitude, receiverlongitude));
+      ridernumberadd.add(senderName);
+
+      // log('$senderPicUrl');
+      
+      tempSenderList.add({
+        'createAt': doc['createAt'],
+        'detail': doc['detail'] ?? '',
+        'photosender': imageUrlr,
+        'sendername': senderName,
+        'rider': doc['rider'] ?? '',
+        'status': doc['status'] ?? '',
+        'sender': doc['sender'] ?? '', 
+        'phone': senderphone, 
+        'picR': senderPicUrl,
+        'latitude': receiverlatitude,
+        'longitude': receiverlongitude,
+      });
+    }
   }
 
   setState(() {
     receiverall = tempSenderList;
+    points = pointsadd;
+    ridernumber = ridernumberadd;
+    riderPoints = riderPointsAdd; 
+    ridernames = ridernamesadd;
   });
 }
-
-
+ 
+ 
 
   Future<void> _loadFirebaseImage() async {
     try {
@@ -238,12 +299,13 @@ Future<void> readAllreceiver() async {
                       ],
                     ),
                     // Second tab: Map Page
-                    const Center(
-                      child: Text(
-                        'แผนที่ Rider ที่กำลังมาส่ง', // "Map will be here" in Thai
-                        style: TextStyle(fontSize: 24),
-                      ),
-                    ),
+                    SizedBox(
+                                width: double
+                                    .infinity, 
+                                height: 300.0, 
+                                child:
+                                    MapAll(), 
+                              )
                   ],
                 ),
               ),
@@ -309,7 +371,270 @@ Future<void> readAllreceiver() async {
     super.dispose();
   }
 
+Widget MapAll() {
+  return Scaffold(
+    body: FlutterMap(
+      mapController: mapController,
+      options: MapOptions(
+        center: currentLocation ?? point1 ?? LatLng(0, 0),
+        zoom: 16.0,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          subdomains: const ['a', 'b', 'c'],
+        ),
+        PolylineLayer(
+          polylines: _buildPolylines(),
+        ),
+        if (_firebaseImageUrl != null && point1 != null)
+          _buildMarker(point1!, _firebaseImageUrl!),
+        ..._buildMarkersWithReceiverPics(),
+        ..._buildRiderMarkers(), // Add rider markers
+      ],
+    ),
+    floatingActionButton: Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FloatingActionButton(
+          onPressed: _zoomIn,
+          child: const Icon(Icons.add),
+          tooltip: 'Zoom In',
+        ),
+        const SizedBox(height: 10),
+        FloatingActionButton(
+          onPressed: _zoomOut,
+          child: const Icon(Icons.remove),
+          tooltip: 'Zoom Out',
+        ),
+      ],
+    ),
+  );
+}
 
+
+
+
+List<MarkerLayer> _buildRiderMarkers() {
+  return riderPoints.asMap().entries.map((entry) {
+    int index = entry.key;
+    var point = entry.value;
+    String riderName = ridernames.isNotEmpty && index < ridernames.length
+        ? ridernames[index]
+        : 'Unknown'; 
+
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: point,
+          height: 100,
+          width: 60,
+          builder: (ctx) => SizedBox(
+            width: 60,
+            height: 100,
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  color: Colors.white,
+                  child: Center(
+                    child: Text(
+                      riderName, // ใช้ riderName ที่ได้จาก ridernames
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                ClipOval(
+                  child: Container(
+                    width: 60,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    child: 'assets/images/riderpic.png'.isNotEmpty
+                        ? Image.asset(
+                            'assets/images/riderpic.png',
+                            width: 40,
+                            height: 40,
+                          )
+                        : const Icon(Icons.person, size: 40),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }).toList();
+}
+
+
+  MarkerLayer _buildMarker(LatLng point, String url) {
+    return MarkerLayer(
+            markers: [
+              Marker(
+                point: point,
+                width: 50,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'คุณ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child:  url != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+  }
+
+
+
+
+  List<Polyline> _buildPolylines() {
+    List<Polyline> polylines = [];
+    for (LatLng point in points) {
+      polylines.add(Polyline(
+        points: [point1!, point], 
+        color: Colors.blue,
+        strokeWidth: 4.0,
+      ));
+    }
+    if (currentLocation != null) {
+      polylines.add(Polyline(
+        points: [
+          point1!,
+          currentLocation!
+        ], 
+        color: Colors.blue,
+        strokeWidth: 4.0,
+      ));
+    }
+    return polylines;
+  }
+
+List<MarkerLayer> _buildMarkersWithReceiverPics() {
+  return points.asMap().entries.map((entry) {
+    int index = entry.key;
+    LatLng point = entry.value;
+    String riderNumber = index < ridernumber.length ? ridernumber[index] : 'Unknown';
+    String receiverPic = index < receiverall.length ? receiverall[index]['picR'] ?? '' : '';
+    // log('$receiverPic');
+
+    return _buildImageMarkerWithPic(point, receiverPic, riderNumber);
+  }).toList();
+}
+
+MarkerLayer _buildImageMarkerWithPic(LatLng point, String imageUrl, String riderNumber) {
+  return MarkerLayer(
+    markers: [
+      Marker(
+        point: point,
+        height: 100,
+        width: 60,
+        builder: (ctx) => SizedBox(
+          width: 60,
+          height: 100,
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                color: Colors.white,
+                child: Center(
+                  child: Text(
+                    riderNumber,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              ClipOval(
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                  ),
+                  child: imageUrl.isNotEmpty
+                      ? Image.network(
+                          imageUrl,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person, size: 40);
+                          },
+                        )
+                      : const Icon(Icons.person, size: 40),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+
+  void _zoomIn() {
+    final currentZoom = mapController.zoom;
+    if (point1 != null) {
+      mapController.move(point1!, currentZoom + zoomIncrement);
+    }
+  }
+
+  void _zoomOut() {
+    final currentZoom = mapController.zoom;
+    if (currentZoom > 1 && point1 != null) {
+      mapController.move(point1!, currentZoom - zoomIncrement);
+    }
+  }
 
 
 

@@ -46,7 +46,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _pickImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     setState(() {
-      _imageFile = image; // อัปเดตตัวแปรภาพ
+      _imageFile = image; 
     });
   }
 
@@ -241,15 +241,14 @@ class _RegisterPageState extends State<RegisterPage> {
                                       builder: (context) => const LoginPages()),
                                 );
                                 setState(() {
-                                  // ล้างข้อมูลทุกช่อง
-                                  nameController.clear(); // ล้างชื่อ
-                                  phoneController.clear(); // ล้างโทรศัพท์
-                                  emailController.clear(); // ล้างอีเมล์
-                                  passwordController.clear(); // ล้างรหัสผ่าน
+                                  nameController.clear(); 
+                                  phoneController.clear(); 
+                                  emailController.clear(); 
+                                  passwordController.clear(); 
                                   confirmPasswordController
-                                      .clear(); // ล้างยืนยันรหัสผ่าน
+                                      .clear(); 
                                   addressOrLicenseController
-                                      .clear(); // ล้างที่อยู่หรือป้ายทะเบียนรถ
+                                      .clear(); 
                                 });
                               },
                               child: const Text(
@@ -259,7 +258,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                             ElevatedButton(
                               onPressed: () {
-                                register(); // Call register function
+                                register(); 
                               },
                               style: ElevatedButton.styleFrom(
                                 shape: RoundedRectangleBorder(
@@ -551,7 +550,9 @@ void _clearInputs() {
   Widget Map() {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text('เลือกที่อยู่'),
+        
       ),
       body: FlutterMap(
         mapController: mapController,

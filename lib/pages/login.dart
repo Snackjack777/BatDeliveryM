@@ -29,7 +29,7 @@ class _LoginPagesState extends State<LoginPages> {
     // TODO: implement initState
     super.initState();
     _emailController.text = 'mik@gmail.com';
-    _passwordController.text = '222222';
+    _passwordController.text = '111111';
     //     _emailController.text = 'test@gmail.com';
     // _passwordController.text = '123456';
     //     _emailController.text = 'snack@gmail.com';

@@ -154,7 +154,7 @@ var result = filteredOrders.docs.where((doc) => doc['status'] != 'ส่งแ�
       ridernamesadd.add(doc['rider']);
       
     }
-    
+
     String imageUrlr = '';
     var result2 = await db.collection('User').doc(doc['receiver']).get();
     
@@ -225,6 +225,9 @@ var result = filteredOrders.docs.where((doc) => doc['status'] != 'ส่งแ�
     ridernames = ridernamesadd;
   });
 }
+ 
+ 
+ 
   @override
   Widget build(BuildContext context) {
     // Filter users based on the search query
@@ -1083,4 +1086,6 @@ MarkerLayer _buildImageMarkerWithPic(LatLng point, String imageUrl, String rider
     ],
   );
 }
+
+
 }

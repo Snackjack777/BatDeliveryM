@@ -44,45 +44,48 @@ class _LoginPagesState extends State<LoginPages> {
         backgroundColor: const Color.fromARGB(255, 174, 63, 194),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: 250,
-                  width: 250,
-                  fit: BoxFit.contain,
-                ),
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator()) // Show loading indicator
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/logo.png',
+                        height: 250,
+                        width: 250,
+                        fit: BoxFit.contain,
+                      ),
+                      Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(15),
+                        ),
+                        color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            children: [
+                              _buildEmailField(),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(),
+                              const SizedBox(height: 20),
+                              _buildRoleSwitch(),
+                              const SizedBox(height: 20),
+                              _buildActionButtons(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildEmailField(),
-                        const SizedBox(height: 16),
-                        _buildPasswordField(),
-                        const SizedBox(height: 20),
-                        _buildRoleSwitch(),
-                        const SizedBox(height: 20),
-                        _buildActionButtons(),
-                      ],
-                    ),
-                  ),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -193,32 +196,37 @@ class _LoginPagesState extends State<LoginPages> {
     );
   }
 
-
+  bool isLoading = false; // Add this variable to track loading state
 
   void login() async {
-    final email = _emailController.text;
-    final password = _passwordController.text;
-    var userCollection;
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        isLoading = true; // Start the loading process
+      });
 
-    if (!isUser) {
-      log('Logging in as User');
-      userCollection = db.collection('User');
-    } else {
-      log('Logging in as Rider');
-      userCollection = db.collection('Rider');
-    }
+      final email = _emailController.text;
+      final password = _passwordController.text;
+      var userCollection;
 
-    try {
-      var querySnapshot = await userCollection
-          .where('email', isEqualTo: email)
-          .where('pass', isEqualTo: password)
-          .get();
+      if (!isUser) {
+        log('Logging in as User');
+        userCollection = db.collection('User');
+      } else {
+        log('Logging in as Rider');
+        userCollection = db.collection('Rider');
+      }
 
-      if (querySnapshot.docs.isNotEmpty) {
-        var userData = querySnapshot.docs.first.data();
-        log('Login successful for user: ${userData['name']}');
-        Get.snackbar("เข้าสู่ระบบสำเร็จ", "ยินดีต้อนรับ คุณ ${userData['name']}");
+      try {
+        var querySnapshot = await userCollection
+            .where('email', isEqualTo: email)
+            .where('pass', isEqualTo: password)
+            .get();
 
+        if (querySnapshot.docs.isNotEmpty) {
+          var userData = querySnapshot.docs.first.data();
+          log('Login successful for user: ${userData['name']}');
+          Get.snackbar(
+              "เข้าสู่ระบบสำเร็จ", "ยินดีต้อนรับ คุณ ${userData['name']}");
 
           storage.write('userId', querySnapshot.docs.first.id);
           storage.write('name', userData['name']);
@@ -226,34 +234,36 @@ class _LoginPagesState extends State<LoginPages> {
           storage.write('phone', userData['phone']);
           storage.write('pic', userData['pic']);
 
-        if (!isUser) {
-          storage.write('latitude', userData['latitude'].toString());
-          storage.write('longitude', userData['longitude'].toString());
+          if (!isUser) {
+            storage.write('latitude', userData['latitude'].toString());
+            storage.write('longitude', userData['longitude'].toString());
 
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const Senderpages()),
+            );
+          } else {
+            storage.write('Carregistration', userData['Carregistration']);
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const Senderpages()),
-          );
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const RiderMainPages()),
+            );
+          }
         } else {
-          storage.write('Carregistration', userData['Carregistration']);
-
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const RiderMainPages()),
-          );
+          log('Invalid email or password');
+          Get.snackbar("Error", "Failed to login");
         }
-      } else {
-        log('Invalid email or password');
+      } catch (e) {
+        log('Failed to login: $e');
         Get.snackbar("Error", "Failed to login");
+      } finally {
+        setState(() {
+          isLoading = false; // Stop the loading process
+        });
       }
-    } catch (e) {
-      log('Failed to login: $e');
-      Get.snackbar("Error", "Failed to login");
     }
   }
-
-
 
   // Register function
   void register() {

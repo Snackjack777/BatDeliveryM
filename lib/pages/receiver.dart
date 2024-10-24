@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:lotto/pages/profileuser.dart';
@@ -163,6 +164,7 @@ Future<void> readAllreceiver() async {
       // log('$senderPicUrl');
       
       tempSenderList.add({
+        'order_id': doc.id,
         'createAt': doc['createAt'],
         'detail': doc['detail'] ?? '',
         'photosender': imageUrlr,
@@ -288,7 +290,19 @@ Future<void> readAllreceiver() async {
                                     Text('สถานะ : ${receiver['status']}'),
                                     Text('รายละเอียด : ${receiver['detail']}'),
                                      
-                                    
+                                    if (receiver['status'] == 'รอยืนยันการส่งงาน') 
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: FilledButton(
+                        onPressed: () {
+                          statussubmit('${receiver['order_id']}','${receiver['rider']}'); 
+                        },
+                        style: ButtonStyle(
+                          backgroundColor: WidgetStateProperty.all<Color>(Colors.green),
+                        ),
+                        child: Text('ยืนยัน'),
+                      ),
+                    ),
                                   ],
                                 ),
                                 leading: Image.network(receiver['photosender']),
@@ -634,6 +648,24 @@ MarkerLayer _buildImageMarkerWithPic(LatLng point, String imageUrl, String rider
     if (currentZoom > 1 && point1 != null) {
       mapController.move(point1!, currentZoom - zoomIncrement);
     }
+  }
+  
+  Future<void> statussubmit(String id,String rider) async {
+    log('$id');
+    await db
+          .collection('Order')
+          .doc(id)
+          .update({'status': 'ส่งแล้ว'});
+
+              await db
+          .collection('Rider')
+          .doc(rider)
+          .update({'status': 'ว่าง'});
+
+
+    readAllreceiver();
+    Get.snackbar("ยืนยันการส่งงานแล้ว", "คุณได้ยืนยันการส่งงานจากไรเดอร์แล้วว");
+
   }
 
 

@@ -208,9 +208,9 @@ class _RiderReceiverPagesState extends State<RiderReceiverPages>
                                                 Text(
                                                     'รหัสงาน : ${order['order_id']}'),
                                                 Text(
-                                                    'ผู้รับ : ${order['senderName']}'),
+                                                    'ผู้ส่ง : ${order['senderName']}'),
                                                 Text(
-                                                    'เบอร์ผู้รับ : ${order['senderphone']}'),
+                                                    'เบอร์ผู้ส่ง : ${order['senderphone']}'),
                                                 Text(
                                                     'ผู้รับ : ${order['receiver']}'),
                                                 Text(
@@ -420,9 +420,9 @@ class _RiderReceiverPagesState extends State<RiderReceiverPages>
   }
 
   Future<void> submitwork(String order_id, String pic1) async {
-    log('Order : ${order_id}');
-    log('pic : ${pic1}');
-    log('work');
+    // log('Order : ${order_id}');
+    // log('pic : ${pic1}');
+    // log('work');
     if (selectedImage != null && order_id != null && pic1 != null) {
       log('pic');
 

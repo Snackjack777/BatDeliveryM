@@ -127,14 +127,13 @@ Future<void> readAllsender() async {
   // .where('sender', isEqualTo: userId ) 
   // .get();
 
-  var result = await db.collection('Order')
+  var filteredOrders = await db.collection('Order')
   .where('sender', isEqualTo: userId)
-  .where('status', isNotEqualTo: 'ส่งแล้ว')
   .get();
 
 
 
-
+var result = filteredOrders.docs.where((doc) => doc['status'] != 'ส่งแล้ว').toList();
  
 
 
@@ -145,7 +144,17 @@ Future<void> readAllsender() async {
 
   List<String> ridernamesadd=[];
   
-  for (var doc in result.docs) {
+  for (var doc in result) {
+
+        // Check if rider point exists (not zero)
+    double pointX = doc['pointX'] ?? 0.0;
+    double pointY = doc['pointY'] ?? 0.0;
+    if (pointX != 0.0 && pointY != 0.0) {
+      riderPointsAdd.add(LatLng(pointX, pointY));
+      ridernamesadd.add(doc['rider']);
+      
+    }
+    
     String imageUrlr = '';
     var result2 = await db.collection('User').doc(doc['receiver']).get();
     
@@ -184,14 +193,7 @@ Future<void> readAllsender() async {
       }
     }
 
-    // Check if rider point exists (not zero)
-    double pointX = doc['pointX'] ?? 0.0;
-    double pointY = doc['pointY'] ?? 0.0;
-    if (pointX != 0.0 && pointY != 0.0) {
-      riderPointsAdd.add(LatLng(pointX, pointY));
-      ridernamesadd.add(doc['rider']);
-      
-    }
+
 
     if (receiverlatitude != 0.0 && receiverlongitude != 0.0) {
       pointsadd.add(LatLng(receiverlatitude, receiverlongitude));

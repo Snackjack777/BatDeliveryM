@@ -245,11 +245,11 @@ class _LoginPagesState extends State<LoginPages> {
         }
       } else {
         log('Invalid email or password');
-        Get.snackbar("Error", "Failed to login");
+        Get.snackbar("เข้าสู่ระบบไม่สำเร็จ", "คุณเข้าสู่ระบบไม่สำเร็จโปรดลองอีกครั้ง");
       }
     } catch (e) {
       log('Failed to login: $e');
-      Get.snackbar("Error", "Failed to login");
+      Get.snackbar("เข้าสู่ระบบไม่สำเร็จ", "คุณเข้าสู่ระบบไม่สำเร็จโปรดลองอีกครั้ง");
     }
   }
 

@@ -224,7 +224,7 @@ class _ProfileriderPagesState extends State<ProfileriderPages> {
                   width: 30,
                   height: 30,
                 ),
-                label: 'Receiver',
+                label: 'Work',
               ),
             ],
           ),

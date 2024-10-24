@@ -151,7 +151,7 @@ class _RiderReceiverPagesState extends State<RiderReceiverPages> with SingleTick
                 width: 30,
                 height: 30,
               ),
-              label: 'Sender',
+              label: 'Rider',
             ),
             BottomNavigationBarItem(
               icon: Image.asset(
@@ -159,7 +159,7 @@ class _RiderReceiverPagesState extends State<RiderReceiverPages> with SingleTick
                 width: 30,
                 height: 30,
               ),
-              label: 'Receiver',
+              label: 'Work',
             ),
           ],
         ),

@@ -330,17 +330,20 @@ bool _validateInputs() {
   String confirmPassword = confirmPasswordController.text;
 
   if (name.isEmpty || phone.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
-    showMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+    // showMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+    Get.snackbar("ข้อมูลไม่ครบ", "กรุณากรอกข้อมูลให้ครบทุกช่อง");
     return false;
   }
 
   if (!isValidEmail(email)) {
-    showMessage('รูปแบบอีเมล์ไม่ถูกต้อง');
+    // showMessage('รูปแบบอีเมล์ไม่ถูกต้อง');
+    Get.snackbar("อีเมล์ไม่ถูก", "กรุณากรอกรูปแบบอีเมล์ไให้ถูกต้อง");
     return false;
   }
 
   if (password != confirmPassword) {
-    showMessage('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+    // showMessage('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+    Get.snackbar("รหัสผ่านไม่ตรง", "กรุณากรอกรหัสผ่านและยืนยันรหัสผ่านให้ตรงกัน");
     return false;
   }
 

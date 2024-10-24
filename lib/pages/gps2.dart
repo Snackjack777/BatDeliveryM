@@ -251,4 +251,6 @@ class _GPSandMap2PageState extends State<GPSandMap2Page> {
 
     return await Geolocator.getCurrentPosition();
   }
+
+
 }

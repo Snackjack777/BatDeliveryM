@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:get_storage/get_storage.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:lotto/pages/profileuser.dart';
 import 'package:lotto/pages/sender.dart';
 
@@ -37,6 +38,8 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
   List<Map<String, dynamic>> users = [];
   List<Map<String, dynamic>> receiverall = [];
 
+  LatLng? point1;
+
   @override
   void initState() {
     super.initState();
@@ -63,24 +66,67 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
     final longitudeString = storageF.read('longitude');
 
     // แปลงค่า latitude และ longitude เป็น double หากไม่เป็น null
-    // if (latitudeString != null && longitudeString != null) {
-    //   try {
-    //     latitude = double.parse(latitudeString);
-    //     longitude = double.parse(longitudeString);
-    //     if (latitude != null && longitude != null) {
-    //       setState(() {
-    //         point1 = LatLng(latitude!, longitude!);
-    //       });
-    //     }
-    //   } catch (e) {
-    //     log('Error parsing latitude or longitude: $e');
-    //     point1 = null;
-    //   }
-    // } else {
-    //   log('Latitude or longitude is null');
-    //   point1 = null;
-    // }
+    if (latitudeString != null && longitudeString != null) {
+      try {
+        latitude = double.parse(latitudeString);
+        longitude = double.parse(longitudeString);
+        if (latitude != null && longitude != null) {
+          setState(() {
+            point1 = LatLng(latitude!, longitude!);
+          });
+        }
+      } catch (e) {
+        log('Error parsing latitude or longitude: $e');
+        point1 = null;
+      }
+    } else {
+      log('Latitude or longitude is null');
+      point1 = null;
+    }
   }
+
+
+Future<void> readAllreceiver() async {
+  var result =
+      await db.collection('Order').where('receiver', isEqualTo: userId).get();
+  List<Map<String, dynamic>> tempSenderList = [];
+  
+  for (var doc in result.docs) {
+    String imageUrlr = '';
+    var result2 = await db.collection('User').doc(doc['sender']).get(); 
+    
+    try {
+      if (doc['photosender'] != null) {
+        imageUrlr = await storage
+            .ref('/order/${doc['photosender']}')
+            .getDownloadURL();
+      }
+    } catch (e) {
+      log('Failed to load image: $e');
+    }
+
+    // ดึงแค่ชื่อ name จาก result2
+    String sendername = result2.data()?['name'] ?? 'Unknown'; 
+    String senderphone = result2.data()?['phone'] ?? 'Unknown';
+    
+    tempSenderList.add({
+      'createAt': doc['createAt'],
+      'detail': doc['detail'],
+      'photosender': imageUrlr,
+      'sendername': sendername,
+      'rider': doc['rider'],
+      'status': doc['status'],
+      'sender': doc['sender'], 
+      'phone': senderphone, 
+    });
+  }
+
+  setState(() {
+    receiverall = tempSenderList;
+  });
+}
+
+
 
   Future<void> _loadFirebaseImage() async {
     try {
@@ -177,9 +223,9 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('ผู้ส่ง : ${receiver['sendername']}'),
-                                    Text('โทรศัพทร์ผู้รับ : ${receiver['phone']}'),
+                                    Text('เบอร์ผู้ส่ง : ${receiver['phone']}'),
                                     Text('สถานะ : ${receiver['status']}'),
-                                     Text('รายละเอียด : ${receiver['detail']}'),
+                                    Text('รายละเอียด : ${receiver['detail']}'),
                                      
                                     
                                   ],
@@ -262,47 +308,6 @@ class _UserReceiverPagesState extends State<UserReceiverPages> with SingleTicker
     _tabController.dispose(); // Dispose the TabController
     super.dispose();
   }
-
-
-Future<void> readAllreceiver() async {
-  var result =
-      await db.collection('Order').where('receiver', isEqualTo: userId).get(); // ดึงข้อมูลจาก collection Order ที่ sender = userId
-  List<Map<String, dynamic>> tempSenderList = [];
-  
-  for (var doc in result.docs) {
-    String imageUrlr = '';
-    var result2 = await db.collection('User').doc(doc['sender']).get(); // แก้ไขเป็นการดึง sender จาก Order แทน
-    
-    try {
-      if (doc['photosender'] != null) {
-        imageUrlr = await storage
-            .ref('/order/${doc['photosender']}')
-            .getDownloadURL();
-      }
-    } catch (e) {
-      log('Failed to load image: $e');
-    }
-
-    // ดึงแค่ชื่อ name จาก result2
-    String sendername = result2.data()?['name'] ?? 'Unknown'; // หาก name ไม่มีค่า จะแสดง 'Unknown'
-    String senderphone = result2.data()?['phone'] ?? 'Unknown';
-    
-    tempSenderList.add({
-      'createAt': doc['createAt'],
-      'detail': doc['detail'],
-      'photosender': imageUrlr,
-      'sendername': sendername,
-      'rider': doc['rider'],
-      'status': doc['status'],
-      'sender': doc['sender'], 
-      'phone': senderphone, 
-    });
-  }
-
-  setState(() {
-    receiverall = tempSenderList;
-  });
-}
 
 
 

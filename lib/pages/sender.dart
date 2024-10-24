@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -48,6 +49,14 @@ class _SenderpagesState extends State<Senderpages>
   List<Map<String, dynamic>> senderall = [];
 
   XFile? selectedImage;
+
+     List<LatLng> points = [];
+
+   List<String> ridernumber = [];
+   List<LatLng> riderPoints = [];
+     List<String> ridernames = [];
+
+
 
   @override
   void initState() {
@@ -95,8 +104,6 @@ class _SenderpagesState extends State<Senderpages>
     }
   }
 
-
-
   Future<void> readAllUsers() async {
     var result = await db.collection('User').get();
     setState(() {
@@ -109,19 +116,38 @@ class _SenderpagesState extends State<Senderpages>
           'latitude': doc['latitude'],
           'longitude': doc['longitude'],
           'createdAt': (doc['createAt'] as Timestamp).millisecondsSinceEpoch,
+          'pic': doc['pic'],
         };
       }).toList();
     });
   }
 
 Future<void> readAllsender() async {
-  var result =
-      await db.collection('Order').where('sender', isEqualTo: userId).get(); // ดึงข้อมูลจาก collection Order ที่ sender = userId
+  // var result = await db.collection('Order')
+  // .where('sender', isEqualTo: userId ) 
+  // .get();
+
+  var result = await db.collection('Order')
+  .where('sender', isEqualTo: userId)
+  .where('status', isNotEqualTo: 'ส่งแล้ว')
+  .get();
+
+
+
+
+ 
+
+
   List<Map<String, dynamic>> tempSenderList = [];
+  List<LatLng> pointsadd = [];
+  List<String> ridernumberadd = [];
+  List<LatLng> riderPointsAdd = []; 
+
+  List<String> ridernamesadd=[];
   
   for (var doc in result.docs) {
     String imageUrlr = '';
-    var result2 = await db.collection('User').doc(doc['receiver']).get(); // แก้ไขเป็นการดึง sender จาก Order แทน
+    var result2 = await db.collection('User').doc(doc['receiver']).get();
     
     try {
       if (doc['photosender'] != null) {
@@ -131,29 +157,72 @@ Future<void> readAllsender() async {
       }
     } catch (e) {
       log('Failed to load image: $e');
+      imageUrlr = ''; 
     }
 
-    // ดึงแค่ชื่อ name จาก result2
-    String receiverName = result2.data()?['name'] ?? 'Unknown'; // หาก name ไม่มีค่า จะแสดง 'Unknown'
-    String receiverphone = result2.data()?['phone'] ?? 'Unknown';
+    String receiverName = result2.data()?['name']?.toString() ?? 'Unknown'; 
+    String receiverphone = result2.data()?['phone']?.toString() ?? 'Unknown';
+    String? receiverpic = result2.data()?['pic']?.toString();
     
-    tempSenderList.add({
-      'createAt': doc['createAt'],
-      'detail': doc['detail'],
-      'photosender': imageUrlr,
-      'receiver': receiverName,
-      'rider': doc['rider'],
-      'status': doc['status'],
-      'sender': doc['sender'], 
-      'phone': receiverphone, 
-    });
+    double receiverlatitude = 0.0;
+    double receiverlongitude = 0.0;
+    
+    try {
+      receiverlatitude = double.parse(result2.data()?['latitude']?.toString() ?? '0.0');
+      receiverlongitude = double.parse(result2.data()?['longitude']?.toString() ?? '0.0');
+    } catch (e) {
+      log('Error parsing coordinates: $e');
+    }
+    
+    String receiverPicUrl = '';
+    if (receiverpic != null && receiverpic.isNotEmpty) {
+      try {
+        receiverPicUrl = await storage.ref('/uploads/$receiverpic').getDownloadURL();
+      } catch (e) {
+        log('Failed to load receiver pic: $e');
+        receiverPicUrl = ''; 
+      }
+    }
+
+    // Check if rider point exists (not zero)
+    double pointX = doc['pointX'] ?? 0.0;
+    double pointY = doc['pointY'] ?? 0.0;
+    if (pointX != 0.0 && pointY != 0.0) {
+      riderPointsAdd.add(LatLng(pointX, pointY));
+      ridernamesadd.add(doc['rider']);
+      
+    }
+
+    if (receiverlatitude != 0.0 && receiverlongitude != 0.0) {
+      pointsadd.add(LatLng(receiverlatitude, receiverlongitude));
+      ridernumberadd.add(receiverName);
+      
+      tempSenderList.add({
+        'createAt': doc['createAt'],
+        'detail': doc['detail'] ?? '',
+        'photosender': imageUrlr,
+        'receiver': receiverName,
+        'rider': doc['rider'] ?? '',
+        'status': doc['status'] ?? '',
+        'sender': doc['sender'] ?? '', 
+        'phone': receiverphone, 
+        'picR': receiverPicUrl,
+        'latitude': receiverlatitude,
+        'longitude': receiverlongitude,
+        // 'pointX': pointX,
+        // 'pointY': pointY,
+      });
+    }
   }
 
   setState(() {
     senderall = tempSenderList;
+    points = pointsadd;
+    ridernumber = ridernumberadd;
+    riderPoints = riderPointsAdd; 
+    ridernames = ridernamesadd;
   });
 }
-
   @override
   Widget build(BuildContext context) {
     // Filter users based on the search query
@@ -254,6 +323,7 @@ Future<void> readAllsender() async {
                                   children: [
                                     Text('ผู้รับ : ${sender['receiver']}'),
                                     Text('โทรศัพทร์ผู้รับ : ${sender['phone']}'),
+                                    Text('ไรเดอร์ : ${sender['rider']}'),
                                     Text('สถานะ : ${sender['status']}'),
                                      Text('รายละเอียด : ${sender['detail']}'),
                                      
@@ -267,12 +337,13 @@ Future<void> readAllsender() async {
                         )),
                       ],
                     ),
-                    const Center(
-                      child: Text(
-                        'แผนที่จะไปที่นี่', // "Map will be here" in Thai
-                        style: TextStyle(fontSize: 24),
-                      ),
-                    ),
+                    SizedBox(
+                                width: double
+                                    .infinity, 
+                                height: 300.0, 
+                                child:
+                                    MapAll(), 
+                              )
                   ],
                 ),
               ),
@@ -343,6 +414,9 @@ Future<void> readAllsender() async {
         TextEditingController(text: user['phone']);
     final TextEditingController detailsController = TextEditingController();
 
+     String picR =
+        await storage.ref('/uploads/${user['pic']}').getDownloadURL();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -406,7 +480,8 @@ Future<void> readAllsender() async {
                             buildMapWithMarkers(
                               point1: point1,
                               url1: _firebaseImageUrl,
-                              users: users,
+                              url2: picR,
+
                               selectedUserLocation: LatLng(
                                 double.parse(user['latitude'].toString()),
                                 double.parse(user['longitude'].toString()),
@@ -485,7 +560,7 @@ Future<void> readAllsender() async {
   Widget buildMapWithMarkers({
     required LatLng? point1,
     required String? url1,
-    required List<Map<String, dynamic>> users,
+    required String? url2,
     required LatLng? selectedUserLocation,
   }) {
     List<LatLng> polylinePoints = [];
@@ -517,36 +592,49 @@ Future<void> readAllsender() async {
 
         // Marker Layer for sender (ผู้ส่ง)
         if (point1 != null)
-          MarkerLayer(
+                    MarkerLayer(
             markers: [
               Marker(
                 point: point1,
                 width: 50,
-                height: 50,
-                builder: (ctx) => ClipOval(
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.black,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.black,
-                        width: 3,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'คุณ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
                       ),
                     ),
-                    child: url1 != null
-                        ? ClipOval(
-                            child: Image.network(
-                              url1,
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : const Icon(Icons.person,
-                            size: 40, color: Colors.grey),
-                  ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child:  url1 != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url1,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -559,72 +647,54 @@ Future<void> readAllsender() async {
               Marker(
                 point: selectedUserLocation,
                 width: 50,
-                height: 50,
-                builder: (ctx) => ClipOval(
-                  child: Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: Colors.purple,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.purple,
-                        width: 3,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'ผู้รับ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
                       ),
                     ),
-                    child: const Icon(
-                      Icons.person_pin_circle,
-                      size: 40,
-                      color: Colors.white,
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: url2 != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url2,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ],
           ),
+
+      
       ],
     );
   }
 
-  Widget MapShow() {
-    return Scaffold(
-      body: FlutterMap(
-        mapController: mapController,
-        options: MapOptions(
-          center: currentLocation ?? point1,
-          zoom: 17.0,
-        ),
-        children: [
-          TileLayer(
-            urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            subdomains: ['a', 'b', 'c'],
-          ),
-          buildMapWithMarkers(
-            point1: point1,
-            url1: _firebaseImageUrl,
-            users: users,
-            selectedUserLocation: null, // ไม่มีผู้ใช้ที่เลือกในหน้า MapShow
-          ),
-        ],
-      ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            onPressed: _zoomIn,
-            child: const Icon(Icons.add),
-            tooltip: 'Zoom In',
-          ),
-          const SizedBox(height: 10),
-          FloatingActionButton(
-            onPressed: _zoomOut,
-            child: const Icon(Icons.remove),
-            tooltip: 'Zoom Out',
-          ),
-        ],
-      ),
-    );
-  }
 
   void _zoomIn() {
     final currentZoom = mapController.zoom;
@@ -640,41 +710,6 @@ Future<void> readAllsender() async {
     }
   }
 
-  MarkerLayer _buildMarkerUser(LatLng point, String url) {
-    return MarkerLayer(
-      markers: [
-        Marker(
-          point: point,
-          width: 50,
-          height: 50,
-          builder: (ctx) => ClipOval(
-            child: Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.black,
-                  width: 3,
-                ),
-              ),
-              child: url != null
-                  ? ClipOval(
-                      child: Image.network(
-                        _firebaseImageUrl!,
-                        width: 40,
-                        height: 40,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : const Icon(Icons.person, size: 40, color: Colors.grey),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Future<void> _loadFirebaseImage() async {
     try {
@@ -722,8 +757,10 @@ Future<void> readAllsender() async {
     log('detail : $detail');
     log('$selectedImage');
 
+
     if (selectedImage != null) {
       var inboxRef = db.collection('Order');
+      
 
       try {
         String newFileName = await getNextFileName();
@@ -746,11 +783,21 @@ Future<void> readAllsender() async {
         await inboxRef.doc(newDocId).set(data);
         selectedImage = null;
         log('Document $newDocId added successfully');
-        Get.snackbar("Success", "Document $newDocId added successfully");
+        Get.snackbar("เพิ่มการส่งสำเร็จ", "คุณเพิ่มข้อมูลการส่ง $newDocId  สำเร็จแล้ววว");
+
+            readAllsender();
+
+              Navigator.pop(
+            context,
+            
+          );
+
       } catch (e) {
         log('Failed to add document: $e');
         Get.snackbar("Error", "Failed to add document");
       }
+    }else{
+      Get.snackbar("ภาพไม่ได้ใส่", "กรุณาใส่ภาพในช่องใส่ภาพ");
     }
   }
 
@@ -786,4 +833,252 @@ Future<void> readAllsender() async {
 
     return 'order-${maxNumber + 1}';
   }
+
+Widget MapAll() {
+  return Scaffold(
+    body: FlutterMap(
+      mapController: mapController,
+      options: MapOptions(
+        center: currentLocation ?? point1 ?? LatLng(0, 0),
+        zoom: 16.0,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+          subdomains: const ['a', 'b', 'c'],
+        ),
+        PolylineLayer(
+          polylines: _buildPolylines(),
+        ),
+        if (_firebaseImageUrl != null && point1 != null)
+          _buildMarker(point1!, _firebaseImageUrl!),
+        ..._buildMarkersWithReceiverPics(),
+        ..._buildRiderMarkers(), // Add rider markers
+      ],
+    ),
+    floatingActionButton: Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        FloatingActionButton(
+          onPressed: _zoomIn,
+          child: const Icon(Icons.add),
+          tooltip: 'Zoom In',
+        ),
+        const SizedBox(height: 10),
+        FloatingActionButton(
+          onPressed: _zoomOut,
+          child: const Icon(Icons.remove),
+          tooltip: 'Zoom Out',
+        ),
+      ],
+    ),
+  );
+}
+
+
+List<MarkerLayer> _buildRiderMarkers() {
+  return riderPoints.asMap().entries.map((entry) {
+    int index = entry.key;
+    var point = entry.value;
+    String riderName = ridernames.isNotEmpty && index < ridernames.length
+        ? ridernames[index]
+        : 'Unknown'; 
+
+    return MarkerLayer(
+      markers: [
+        Marker(
+          point: point,
+          height: 100,
+          width: 60,
+          builder: (ctx) => SizedBox(
+            width: 60,
+            height: 100,
+            child: Column(
+              children: [
+                Container(
+                  width: 60,
+                  color: Colors.white,
+                  child: Center(
+                    child: Text(
+                      riderName, // ใช้ riderName ที่ได้จาก ridernames
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+                ClipOval(
+                  child: Container(
+                    width: 60,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    child: 'assets/images/riderpic.png'.isNotEmpty
+                        ? Image.asset(
+                            'assets/images/riderpic.png',
+                            width: 40,
+                            height: 40,
+                          )
+                        : const Icon(Icons.person, size: 40),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }).toList();
+}
+
+
+  MarkerLayer _buildMarker(LatLng point, String url) {
+    return MarkerLayer(
+            markers: [
+              Marker(
+                point: point,
+                width: 50,
+                height: 80, // เพิ่มความสูงเพื่อให้มีที่สำหรับข้อความ
+                builder: (ctx) => Stack(
+                  // alignment: Alignment.bottomLeft,
+                  children: [
+                    Positioned(
+                      top: 0,
+                      child: Text(
+                        'คุณ',
+                        style: TextStyle(
+                          color: const Color.fromARGB(255, 0, 0, 0),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          backgroundColor: const Color.fromARGB(255, 255, 255, 255).withOpacity(0.7),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 15,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child:  url != null
+                            ? ClipOval(
+                                child: Image.network(
+                                  url,
+                                  width: 40,
+                                  height: 40,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : const Icon(Icons.person,
+                                size: 40, color: Colors.grey),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+  }
+
+
+
+
+  List<Polyline> _buildPolylines() {
+    List<Polyline> polylines = [];
+    for (LatLng point in points) {
+      polylines.add(Polyline(
+        points: [point1!, point], 
+        color: Colors.blue,
+        strokeWidth: 4.0,
+      ));
+    }
+    if (currentLocation != null) {
+      polylines.add(Polyline(
+        points: [
+          point1!,
+          currentLocation!
+        ], 
+        color: Colors.blue,
+        strokeWidth: 4.0,
+      ));
+    }
+    return polylines;
+  }
+
+List<MarkerLayer> _buildMarkersWithReceiverPics() {
+  return points.asMap().entries.map((entry) {
+    int index = entry.key;
+    LatLng point = entry.value;
+    // Make sure we don't access beyond array bounds
+    String riderNumber = index < ridernumber.length ? ridernumber[index] : 'Unknown';
+    String receiverPic = index < senderall.length ? senderall[index]['picR'] ?? '' : '';
+
+    return _buildImageMarkerWithPic(point, receiverPic, riderNumber);
+  }).toList();
+}
+
+MarkerLayer _buildImageMarkerWithPic(LatLng point, String imageUrl, String riderNumber) {
+  return MarkerLayer(
+    markers: [
+      Marker(
+        point: point,
+        height: 100,
+        width: 60,
+        builder: (ctx) => SizedBox(
+          width: 60,
+          height: 100,
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                color: Colors.white,
+                child: Center(
+                  child: Text(
+                    riderNumber,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+              ClipOval(
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.black,
+                      width: 2,
+                    ),
+                  ),
+                  child: imageUrl.isNotEmpty
+                      ? Image.network(
+                          imageUrl,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const Icon(Icons.person, size: 40);
+                          },
+                        )
+                      : const Icon(Icons.person, size: 40),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
 }
